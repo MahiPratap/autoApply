@@ -1,0 +1,229 @@
+// autoApply — persistence layer.
+//
+// SCOPE: this database holds RUNTIME STATE only. Your profile, resumes, search
+// queries, filters, and thresholds live in config/*.yaml and are deliberately
+// NOT duplicated here — one source of truth, no sync problem.
+//
+// NOTE: Prisma does not support enums on SQLite. Status columns are String,
+// with the permitted values defined as const unions in src/db/status.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/db/generated"
+}
+
+datasource db {
+  provider = "sqlite"
+  // url comes from prisma.config.ts (Prisma 7 convention)
+}
+
+/// A job posting discovered on one of the sites.
+model Job {
+  id String @id @default(cuid())
+
+  site        String // naukri | linkedin | indeed
+  externalId  String // the site's own posting id
+  /// sha256(company | title | location), normalised. The real dedupe key:
+  /// catches the same role cross-posted to several sites AND the same role
+  /// reposted weekly by one company.
+  canonicalHash String @unique
+  url           String
+
+  title       String
+  company     String
+  companyKey  String // normalised company name, for cooldown lookups
+  location    String?
+  workMode    String? // onsite | hybrid | remote
+  salaryRaw   String?
+  postedAt    DateTime?
+  /// Full text, retained so a rubric change can be re-scored without re-crawling.
+  descriptionRaw String?
+  /// native | external | unknown — external (Workday/Greenhouse/Lever) is never auto-applied.
+  applyType   String @default("unknown")
+
+  status       String  @default("DISCOVERED")
+  /// Why it landed in its current status, e.g. "title excluded: intern".
+  statusReason String?
+
+  discoveredAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  scores      MatchScore[]
+  application Application?
+  events      Event[]
+
+  @@unique([site, externalId])
+  @@index([status])
+  @@index([discoveredAt])
+  @@index([companyKey])
+}
+
+/// One AI scoring pass over a job. Kept as history rather than overwritten, so
+/// changing the rubric leaves an audit trail of how decisions were made.
+model MatchScore {
+  id    String @id @default(cuid())
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  score           Int // 0-100
+  verdict         String // strong | possible | weak
+  hasDisqualifier Boolean @default(false)
+
+  /// JSON: per-dimension sub-scores (skills, seniority, domain, location).
+  dimensions String
+  /// JSON: string[] of human-readable reasons.
+  reasons String
+  /// JSON: string[] of requirements the profile does not meet.
+  missingRequirements String?
+
+  model         String
+  rubricVersion String
+
+  inputTokens  Int   @default(0)
+  outputTokens Int   @default(0)
+  cachedTokens Int   @default(0)
+  costUsd      Float @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+  @@index([createdAt])
+}
+
+/// A submission attempt. One row per job — retries increment `attempts` in
+/// place rather than inserting, so the unique constraint below is a hard
+/// database-level guard against ever applying to the same job twice.
+model Application {
+  id    String @id @default(cuid())
+  jobId String @unique
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  status String @default("PREPARING")
+  /// Which MODE produced this row — dry-run submissions must be distinguishable.
+  mode   String
+
+  resumeLabel     String
+  resumeFile      String
+  coverLetterPath String?
+  /// JSON: every field value sent, captured before the submit click.
+  answersSnapshot String?
+  screenshotPath  String?
+  /// Whatever the site gave back as proof, if anything.
+  confirmationRef String?
+
+  attempts  Int     @default(0)
+  lastError String?
+
+  preparedAt  DateTime  @default(now())
+  submittedAt DateTime?
+  verifiedAt  DateTime?
+
+  @@index([status])
+  @@index([submittedAt])
+}
+
+/// Answers to application form questions, keyed by a hash of the normalised
+/// question text. Questions repeat heavily across postings, so this table is
+/// what drives per-application AI cost towards zero over time.
+model AnswerCache {
+  id           String @id @default(cuid())
+  questionHash String @unique
+  questionText String
+  fieldType    String // text | textarea | select | radio | checkbox | number | date | file
+  answerText   String
+  /// profile | generated | manual — generated answers start unapproved.
+  source       String
+  approved     Boolean @default(false)
+
+  timesUsed  Int       @default(0)
+  lastUsedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([approved])
+}
+
+/// Runtime company rules. The static blocklist lives in search.yaml; this table
+/// holds what accrues at runtime — cooldowns after applying, and companies you
+/// block from the review queue.
+model CompanyPolicy {
+  id          String @id @default(cuid())
+  companyKey  String @unique
+  companyName String
+
+  action String // block | cooldown | prioritize
+  until  DateTime?
+  reason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Per-site scheduler state: watermarks, circuit breaker, session health.
+model SiteState {
+  site String @id // naukri | linkedin | indeed
+
+  /// Discovery only looks for jobs newer than this.
+  lastSuccessfulRunAt DateTime?
+  lastRunStartedAt    DateTime?
+
+  consecutiveFailures Int       @default(0)
+  breakerOpenUntil    DateTime?
+
+  /// Last time the persisted browser session was confirmed logged in.
+  sessionValidAt DateTime?
+
+  updatedAt DateTime @updatedAt
+}
+
+/// The crash-safe work queue AND the run log — one row per pipeline run,
+/// from enqueue through completion. A process killed mid-run leaves a RUNNING
+/// row the next tick can reclaim.
+model Run {
+  id   String @id @default(cuid())
+  site String
+
+  status  String @default("QUEUED") // QUEUED | RUNNING | SUCCEEDED | FAILED | SKIPPED
+  trigger String @default("cron") // cron | manual
+
+  queuedAt   DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  /// JSON: counts per stage — discovered, deduped, filtered, scored, applied,
+  /// plus the field-extraction rate that drives the selector-drift alarm.
+  stats String?
+  error String?
+
+  events Event[]
+
+  @@index([status])
+  @@index([site, queuedAt])
+}
+
+/// Append-only audit trail. Every status transition writes one row, which is
+/// what makes "why did it apply to this job?" answerable after the fact.
+model Event {
+  id String @id @default(cuid())
+  at DateTime @default(now())
+
+  /// e.g. job.status_changed, application.submitted, run.failed
+  kind String
+
+  jobId String?
+  job   Job?    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  runId String?
+  run   Run?    @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  fromStatus String?
+  toStatus   String?
+  message    String?
+  /// JSON: arbitrary structured context.
+  data String?
+
+  @@index([jobId])
+  @@index([runId])
+  @@index([at])
+  @@index([kind])
+}

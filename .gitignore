@@ -30,5 +30,8 @@ dist/
 coverage/
 *.tsbuildinfo
 
+# generated Prisma client — recreated by `npx prisma generate`
+src/db/generated/
+
 # os
 .DS_Store

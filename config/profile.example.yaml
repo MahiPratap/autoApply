@@ -1,0 +1,137 @@
+# ---------------------------------------------------------------------------
+# profile.example.yaml — TEMPLATE ONLY. Do not put real details in this file:
+# it IS committed to git. Copy it, then edit the copy:
+#
+#   cp config/profile.example.yaml config/profile.yaml
+#
+# config/profile.yaml is gitignored and is the file the app actually loads.
+#
+# THIS IS THE ONLY SOURCE OF FACTS THE AI MAY ASSERT ABOUT YOU.
+# If an application form asks something the profile cannot answer, the resolver
+# flags it for your review rather than inventing a value. Accuracy here is what
+# keeps every generated answer and cover letter truthful.
+#
+# Every CHANGE_ME must be replaced — startup refuses to proceed while any
+# remain. Numeric fields hold example values; check each one.
+# ---------------------------------------------------------------------------
+
+identity:
+  fullName: CHANGE_ME
+  firstName: CHANGE_ME
+  lastName: CHANGE_ME
+  # One line, used as scoring context. Not submitted verbatim anywhere.
+  headline: CHANGE_ME e.g. Full-stack engineer, 5 years, Node/React/AWS
+
+contact:
+  email: CHANGE_ME@example.com
+  # Digits only — no country code, spaces, or dashes. Forms split them.
+  phone: "9999999999"
+  phoneCountryCode: "+91"
+  city: CHANGE_ME
+  state: CHANGE_ME
+  country: India
+  linkedinUrl: https://www.linkedin.com/in/CHANGE_ME
+  # Optional — delete the lines if you do not have them.
+  githubUrl: https://github.com/CHANGE_ME
+  # portfolioUrl: https://example.com
+
+workAuthorization:
+  country: India
+  # citizen | permanent_resident | work_visa | needs_sponsorship
+  status: citizen
+  requiresSponsorship: false
+  willingToRelocate: true
+
+experience:
+  totalYears: 5
+  currentTitle: CHANGE_ME
+  currentCompany: CHANGE_ME
+  currentlyEmployed: true
+  # 0 means immediately available. Naukri asks this on nearly every application.
+  noticePeriodDays: 60
+
+compensation:
+  # 3-letter ISO code.
+  currency: INR
+  # ANNUAL, in whole units of the currency above — NOT lakhs, NOT thousands.
+  # 1200000 = 12 LPA.
+  current: 1200000
+  expectedMin: 1600000
+  expectedMax: 2000000
+  # Single figure for forms that accept only one (Naukri's "expected CTC").
+  # Must fall between expectedMin and expectedMax. Omit to default to expectedMin.
+  preferredSingle: 1800000
+  negotiable: true
+
+preferences:
+  # Drives search queries AND the matcher's seniority judgment. Be specific:
+  # "Senior Backend Engineer" scores far better than "Developer".
+  titles:
+    - CHANGE_ME e.g. Senior Backend Engineer
+    - CHANGE_ME e.g. Node.js Developer
+  locations:
+    - CHANGE_ME e.g. Bengaluru
+    - Remote
+  # onsite | hybrid | remote | any
+  workMode: any
+  # full_time | part_time | contract | internship
+  employmentTypes:
+    - full_time
+
+# Mark your strongest 3-5 as primary — the matcher weights those heavily, so
+# marking most of them primary defeats the purpose.
+# `years` may not exceed experience.totalYears.
+skills:
+  - { name: CHANGE_ME e.g. TypeScript, years: 5, level: advanced, primary: true }
+  - { name: CHANGE_ME e.g. Node.js, years: 5, level: advanced, primary: true }
+  - { name: CHANGE_ME e.g. React, years: 4, level: intermediate, primary: true }
+  - { name: CHANGE_ME e.g. PostgreSQL, years: 3, level: intermediate, primary: false }
+  - { name: CHANGE_ME e.g. AWS, years: 2, level: intermediate, primary: false }
+
+education:
+  - degree: CHANGE_ME e.g. B.Tech
+    field: CHANGE_ME e.g. Computer Science
+    institution: CHANGE_ME
+    yearCompleted: 2020
+    # grade: 8.2 CGPA
+
+languages:
+  - { name: English, proficiency: fluent }
+  - { name: Hindi, proficiency: native }
+
+# Files live in storage/resumes/ — give the BARE FILENAME, not a path.
+# Exactly one must have isDefault: true.
+# targetRoles are matched against the role family the matcher infers from the
+# job, so a variant is only chosen when it actually fits. With a single resume
+# they have no effect; leave the list empty.
+resumes:
+  - label: primary
+    file: CHANGE_ME.pdf
+    targetRoles: []
+    isDefault: true
+  # - label: frontend-leaning
+  #   file: resume-frontend.pdf
+  #   targetRoles: [frontend, fullstack]
+  #   isDefault: false
+
+# Optional demographic answers for EEO questions on some forms.
+# LEAVING THIS OUT IS THE DEFAULT AND IS FINE — those questions then route to
+# your review instead of being auto-answered. Uncomment only if you would
+# rather answer them automatically.
+# eeo:
+#   gender: Prefer not to say
+#   ethnicity: Prefer not to say
+#   veteranStatus: Prefer not to say
+#   disabilityStatus: Prefer not to say
+
+# Free-form answers to recurring application questions. The resolver checks
+# these BEFORE asking the AI to generate anything, so each entry you add here
+# permanently removes one review prompt. Grow this over time — after a couple
+# of weeks most applications resolve entirely from profile + cache at zero cost.
+# Quote Yes/No values: unquoted, some YAML parsers read them as booleans.
+extras:
+  whyThisCompany: CHANGE_ME — a short reusable paragraph, or delete this key
+  reasonForJobChange: CHANGE_ME e.g. Looking for larger-scale systems work
+  willingToWorkNightShifts: "No"
+  hasPassport: "Yes"
+  currentLocationRelocationNote: Open to relocation for the right role

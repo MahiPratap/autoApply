@@ -1,0 +1,121 @@
+# ---------------------------------------------------------------------------
+# Search queries, filters, and safety rails — tuned for Mahender's profile.
+#
+# All of it is enforced by the scheduler and matcher, never by the site
+# adapters, so no adapter bug can exceed a cap or bypass a threshold.
+# ---------------------------------------------------------------------------
+
+global:
+  dailyApplicationCap: 8
+  reviewThreshold: 65
+  autoApplyThreshold: 80
+  companyCooldownDays: 90
+  quietHours:
+    start: "22:00"
+    end: "07:00"
+  actionDelayMs:
+    min: 800
+    max: 2500
+
+sites:
+  naukri:
+    enabled: true
+    cadenceMinutes: 30
+    maxDetailFetchesPerRun: 25
+    dailyCapPerSite: 5
+    circuitBreakerThreshold: 3
+    circuitBreakerCooldownMinutes: 120
+    queries:
+      # "Delhi / NCR" is Naukri's own canonical region and covers Delhi, Noida,
+      # and Gurgaon in one query — three of your five locations, one page load.
+      - keywords: MERN Stack Developer
+        location: Delhi / NCR
+        postedWithinHours: 24
+        experienceYears: { min: 3, max: 7 }
+
+      - keywords: Full Stack Developer Node React
+        location: Delhi / NCR
+        postedWithinHours: 24
+        experienceYears: { min: 3, max: 7 }
+
+      - keywords: Node.js Backend Developer
+        location: Bengaluru
+        postedWithinHours: 24
+        experienceYears: { min: 3, max: 7 }
+
+      - keywords: Full Stack Developer
+        location: ""
+        remoteOnly: true
+        postedWithinHours: 24
+        experienceYears: { min: 3, max: 7 }
+
+  # Enabled in Step 16, after Naukri has 20 clean verified submissions.
+  linkedin:
+    enabled: false
+    cadenceMinutes: 60
+    maxDetailFetchesPerRun: 20
+    dailyCapPerSite: 4
+    circuitBreakerThreshold: 3
+    circuitBreakerCooldownMinutes: 180
+    queries: []
+
+  # Enabled in Step 17. Highest detection risk of the three.
+  indeed:
+    enabled: false
+    cadenceMinutes: 30
+    maxDetailFetchesPerRun: 15
+    dailyCapPerSite: 3
+    circuitBreakerThreshold: 2
+    circuitBreakerCooldownMinutes: 240
+    queries: []
+
+filters:
+  # Case-insensitive substring match on the job title.
+  titleExcludes:
+    # wrong seniority
+    - intern
+    - internship
+    - trainee
+    - fresher
+    - graduate engineer
+    - director
+    - vice president
+    - engineering manager
+    # wrong function
+    - sales
+    - support engineer
+    - business analyst
+    - qa engineer
+    - test engineer
+    # wrong stack — you are MERN; these are the highest-volume mismatches
+    # on Naukri and this list is what keeps AI scoring cheap
+    - java developer
+    - .net
+    - dotnet
+    - php
+    - laravel
+    - wordpress
+    - drupal
+    - magento
+    - salesforce
+    - sap
+    - abap
+    - android developer
+    - ios developer
+    - flutter
+    - angular developer
+
+  # Left empty: with 4 titles across 5 locations, an allowlist would drop good
+  # postings with unusual titles. Revisit after a week of real discovery data.
+  titleIncludesAny: []
+
+  # Add staffing agencies and companies you never want contacted, as you find them.
+  companyBlocklist: []
+
+  descriptionExcludes:
+    - unpaid
+    - commission only
+    - own laptop mandatory
+
+  maxJobAgeHours: 48
+  allowExternalAts: false

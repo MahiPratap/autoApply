@@ -21,6 +21,8 @@
 
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["node_modules", "storage"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "prisma.config.ts"],
+  // The generated client ships @ts-nocheck; excluding it from the root file set
+  // keeps typecheck fast. Imports still resolve normally.
+  "exclude": ["node_modules", "storage", "src/db/generated"]
 }

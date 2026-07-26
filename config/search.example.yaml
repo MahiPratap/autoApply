@@ -1,0 +1,112 @@
+# ---------------------------------------------------------------------------
+# search.example.yaml  →  copy to config/search.yaml
+#
+#   cp config/search.example.yaml config/search.yaml
+#
+# Search queries, filters, and every safety rail. All of it is enforced by the
+# scheduler and matcher — never by the site adapters — so no adapter bug can
+# exceed a cap or bypass a threshold.
+#
+# Defaults below are deliberately conservative. Start here, then loosen once
+# you have watched it run.
+# ---------------------------------------------------------------------------
+
+global:
+  # Total submissions per calendar day across ALL sites. Start low.
+  dailyApplicationCap: 8
+
+  # Two thresholds, both 0-100:
+  #   below reviewThreshold      -> dropped outright
+  #   reviewThreshold..auto      -> queued for your approval
+  #   >= autoApplyThreshold      -> submitted automatically, but ONLY in MODE=auto
+  # Tune these against your golden set in Step 10, not by guessing.
+  reviewThreshold: 65
+  autoApplyThreshold: 80
+
+  # Never a second application to the same company inside this window.
+  companyCooldownDays: 90
+
+  # No submissions inside this window, in the TZ set in .env. Applications
+  # timestamped 3am across three platforms are a visible signal.
+  quietHours:
+    start: "22:00"
+    end: "07:00"
+
+  # Randomized delay between page actions, milliseconds.
+  actionDelayMs:
+    min: 800
+    max: 2500
+
+sites:
+  # Naukri is built first (Steps 6-15): it is the least hostile to automation,
+  # so you debug the pipeline rather than the pipeline AND bot detection.
+  naukri:
+    enabled: true
+    cadenceMinutes: 30
+    maxDetailFetchesPerRun: 25
+    dailyCapPerSite: 5
+    circuitBreakerThreshold: 3
+    circuitBreakerCooldownMinutes: 120
+    queries:
+      - keywords: CHANGE_ME e.g. Node.js Backend Developer
+        location: CHANGE_ME e.g. Bengaluru
+        remoteOnly: false
+        postedWithinHours: 24
+        experienceYears: { min: 3, max: 7 }
+      # - keywords: TypeScript Developer
+      #   location: Remote
+      #   remoteOnly: true
+
+  # Enabled in Step 16, after Naukri has 20 clean verified submissions.
+  # 60 minutes to start — 30 is aggressive for LinkedIn specifically.
+  linkedin:
+    enabled: false
+    cadenceMinutes: 60
+    maxDetailFetchesPerRun: 20
+    dailyCapPerSite: 4
+    circuitBreakerThreshold: 3
+    circuitBreakerCooldownMinutes: 180
+    queries: []
+
+  # Enabled in Step 17. Highest bot-detection risk of the three — tight
+  # breaker, and be willing to leave this off permanently. Two working sites
+  # beat three flaky ones.
+  indeed:
+    enabled: false
+    cadenceMinutes: 30
+    maxDetailFetchesPerRun: 15
+    dailyCapPerSite: 3
+    circuitBreakerThreshold: 2
+    circuitBreakerCooldownMinutes: 240
+    queries: []
+
+# The free, deterministic prefilter. Runs on every job before any AI cost is
+# incurred and should remove 50-70% of what discovery finds. Every rejection
+# records a reason so you can audit whether these are too aggressive.
+filters:
+  # Case-insensitive substring match on the job title.
+  titleExcludes:
+    - intern
+    - internship
+    - trainee
+    - fresher
+    - director
+    - vice president
+    - manager
+    - sales
+    - support engineer
+  # If non-empty, the title MUST contain at least one of these. Leave empty
+  # while you are still learning what discovery returns.
+  titleIncludesAny: []
+  # Case-insensitive match on company name.
+  companyBlocklist:
+    - CHANGE_ME e.g. a staffing agency you never want to hear from
+  # Case-insensitive substring match on the job description.
+  descriptionExcludes:
+    - unpaid
+    - commission only
+  maxJobAgeHours: 48
+  # External ATS (Workday, Greenhouse, Lever, Taleo) postings are captured for
+  # manual action instead. Auto-filling arbitrary ATS forms is where these
+  # systems produce their worst output — leave this false.
+  allowExternalAts: false
