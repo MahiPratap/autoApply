@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+
+# secrets — never commit
+.env
+.env.local
+
+# personal data: profile.yaml holds PII, salary expectations, contact details.
+# Commit config/profile.example.yaml instead.
+config/profile.yaml
+
+# database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# runtime artifacts — keep the directories, ignore the contents
+storage/logs/*
+storage/screenshots/*
+storage/resumes/*
+storage/sessions/*
+!storage/**/.gitkeep
+
+# kill switch (operational state, not source)
+storage/HALT
+
+# build / tooling
+dist/
+coverage/
+*.tsbuildinfo
+
+# os
+.DS_Store
